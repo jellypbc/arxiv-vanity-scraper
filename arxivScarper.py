@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import random
 
 '''
 	Function that takes post from arxiv vanity and returns cleaned html to be parsed into jelly
@@ -43,18 +44,21 @@ def scrapeVanity(arxivID, fileName):
 	print("Generated", fileName, "based on arxiv paper", arxivID)
 
 	# recursion(?) (EXPERIMENTAL)
-	'''
+	
 	IDList = []
 	for tag in soup.find_all():
 		if 'href' in tag.attrs:
-			if '/papers/' in tag.attrs['href']:
+			if '/papers/' in tag.attrs['href'] and 'http' not in tag.attrs['href']:
 				newId = tag.attrs['href'].replace('/papers/','').replace('/','')
 				IDList.append(newId)
 
 	# BIG if (lets see what happens lol)
 	if len(IDList) > 0:
-		scrapeVanity(IDList[0], IDList[0] + '.html')
-	'''
+		toTry = random.randint(0, len(IDList) - 1)
+		scrapeVanity(IDList[toTry], IDList[toTry] + '.html')
+	else:
+		return
+
 
 	
 # Sample run of function
