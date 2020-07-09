@@ -34,12 +34,28 @@ def scrapeVanity(arxivID, fileName):
 		if 'id' in tag.attrs:
 			del tag.attrs['id']
 
+
 	# write to html file
 	htmlFile = open(fileName, 'w')
 	a = htmlFile.write(soup.prettify())
 	htmlFile.close()
 
 	print("Generated", fileName, "based on arxiv paper", arxivID)
+
+	# recursion(?) (EXPERIMENTAL)
+	'''
+	IDList = []
+	for tag in soup.find_all():
+		if 'href' in tag.attrs:
+			if '/papers/' in tag.attrs['href']:
+				newId = tag.attrs['href'].replace('/papers/','').replace('/','')
+				IDList.append(newId)
+
+	# BIG if (lets see what happens lol)
+	if len(IDList) > 0:
+		scrapeVanity(IDList[0], IDList[0] + '.html')
+	'''
+
 	
 # Sample run of function
 scrapeVanity('1603.09382', 'test.html')
