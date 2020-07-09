@@ -28,7 +28,7 @@ def scrapeVanity(arxivID, fileName):
 
 	# remove inline styles, classes, ids
 	for tag in soup.find_all():
-		if 'style' in tag.attrs: 
+		if 'style' in tag.attrs:
 			del tag.attrs['style']
 		if 'class' in tag.attrs:
 			del tag.attrs['class']
@@ -44,7 +44,7 @@ def scrapeVanity(arxivID, fileName):
 	print("Generated", fileName, "based on arxiv paper", arxivID)
 
 	# recursion(?) (EXPERIMENTAL)
-	
+
 	IDList = []
 	for tag in soup.find_all():
 		if 'href' in tag.attrs:
@@ -60,6 +60,6 @@ def scrapeVanity(arxivID, fileName):
 		return
 
 
-	
+
 # Sample run of function
 scrapeVanity('1603.09382', 'test.html')
