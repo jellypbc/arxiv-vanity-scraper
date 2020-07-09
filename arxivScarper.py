@@ -1,11 +1,20 @@
-# Libraries
 import requests
 from bs4 import BeautifulSoup
 
-# Test Function (go through workflow of sample request)
-def test():
+'''
+	Function that takes post from arxiv vanity and returns cleaned html to be parsed into jelly
+
+	Input:
+		arxivID: id of paper on arxiv website
+		fileName: name of html file to be generated/updated
+
+	Output:
+		Generated HTML file
+'''
+def scrapeVanity(arxivID, fileName):
+
 	#get html and parse into beautiful soup
-	response = requests.get("https://www.arxiv-vanity.com/papers/1603.09382/")
+	response = requests.get("https://www.arxiv-vanity.com/papers/" + str(arxivID))
 	soup = BeautifulSoup(response.content, 'html.parser')
 
 	# remove unneeded tags
@@ -15,6 +24,7 @@ def test():
 	[elem.extract() for elem in soup.findAll('footer')]
 	[elem.extract() for elem in soup.findAll('form')]
 	[elem.extract() for elem in soup.findAll('div', {'class':'arxiv-vanity-wrapper'})]
+
 	# remove inline styles, classes, ids
 	for tag in soup.find_all():
 		if 'style' in tag.attrs: 
@@ -24,15 +34,12 @@ def test():
 		if 'id' in tag.attrs:
 			del tag.attrs['id']
 
-	print(soup)
-	htmlFile = open('test.html', 'w')
+	# write to html file
+	htmlFile = open(fileName, 'w')
 	a = htmlFile.write(soup.prettify())
 	htmlFile.close()
-	
-	'''
-	to remove:
-		<div class="arxiv-vanity-wrapper">
-		<div class="arxiv-vanity-wrapper">
-	'''
 
-test()
+	print("Generated", fileName, "based on arxiv paper", arxivID)
+	
+# Sample run of function
+scrapeVanity('1603.09382', 'test.html')
