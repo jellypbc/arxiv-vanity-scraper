@@ -54,8 +54,8 @@ def scrapeVanity(arxivID, fileName):
 
 	# BIG if (lets see what happens lol)
 	if len(IDList) > 0:
-		toTry = random.randint(0, len(IDList) - 1)
-		scrapeVanity(IDList[toTry], IDList[toTry] + '.html')
+		for i in IDList:
+			scrapeVanity(i, i + '.html')
 	else:
 		return
 
