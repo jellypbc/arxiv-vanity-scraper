@@ -1,0 +1,7011 @@
+<!DOCTYPE html>
+<html lang="en">
+ <body>
+  <div>
+   <div>
+    <article>
+     <h1>
+      Deep Networks with Stochastic Depth
+     </h1>
+     <div>
+      <span>
+       <span>
+        Gao Huang*, Yu Sun*, Zhuang Liu
+        <span>
+         <span>
+          <span>
+           <span aria-label="{}^{\dagger}">
+            <span aria-hidden="true">
+             <span>
+              <span>
+               <span>
+                <span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   †
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+        </span>
+        , Daniel Sedra, Kilian Q. Weinberger
+       </span>
+       <span>
+        <span>
+         * Authors contribute equally
+         <br/>
+         <a href="http://%7Bgh349,%20ys646,%20dms422,%20kqw4%7D@cornell.edu" target="_blank" title="">
+          {gh349, ys646, dms422,
+         </a>
+         , Cornell University
+         <br/>
+         <span>
+          <span>
+           <span>
+            <span aria-label="{}^{\dagger}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    †
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         <a href="http://liuzhuang13@mails.tsinghua.edu.cn" target="_blank" title="">
+         </a>
+         , Tsinghua University
+        </span>
+       </span>
+      </span>
+     </div>
+     <div>
+      <h6>
+       Abstract
+      </h6>
+      <p>
+       Very deep convolutional networks with hundreds of layers have led to significant reductions in error on competitive benchmarks. Although the unmatched expressiveness of the many layers can be highly desirable at test time, training very deep networks comes with its own set of challenges. The gradients can vanish, the forward flow often diminishes, and the training time can be painfully slow. To address these problems, we propose
+       <em>
+        stochastic depth
+       </em>
+       , a training procedure that enables the seemingly contradictory setup to
+       <em>
+        train short
+       </em>
+       networks and
+       <em>
+        use deep
+       </em>
+       networks at test time. We start with very deep networks but during training, for each mini-batch, randomly drop a subset of layers and bypass them with the identity function. This simple approach complements the recent success of residual networks. It reduces training time substantially and improves the test error significantly on almost all data sets that we used for evaluation. With stochastic depth we can increase the depth of residual networks even beyond 1200 layers and still yield meaningful improvements in test error (4.91% on CIFAR-10).
+      </p>
+     </div>
+     <section>
+      <h2>
+       <span>
+        1
+       </span>
+       Introduction
+      </h2>
+      <div>
+       <p>
+        Convolutional Neural Networks (CNNs) were arguably popularized within the vision community in 2009 through AlexNet
+        <cite>
+         [
+         <a href="#bib.bib1" target="_blank" title="">
+          1
+         </a>
+         ]
+        </cite>
+        and its celebrated victory at the ImageNet competition
+        <cite>
+         [
+         <a href="#bib.bib2" target="_blank" title="">
+          2
+         </a>
+         ]
+        </cite>
+        .
+Since then there has been a notable shift towards CNNs in many areas of computer vision
+        <cite>
+         [
+         <a href="#bib.bib3" target="_blank" title="">
+          3
+         </a>
+         ,
+         <a href="#bib.bib4" target="_blank" title="">
+          4
+         </a>
+         ,
+         <a href="#bib.bib5" target="_blank" title="">
+          5
+         </a>
+         ,
+         <a href="#bib.bib6" target="_blank" title="">
+          6
+         </a>
+         ,
+         <a href="#bib.bib7" target="_blank" title="">
+          7
+         </a>
+         ,
+         <a href="#bib.bib8" target="_blank" title="">
+          8
+         </a>
+         ]
+        </cite>
+        . As this shift unfolds, a second trend emerges; deeper and deeper CNN architectures are being developed and trained. Whereas AlexNet had 5 convolutional layers
+        <cite>
+         [
+         <a href="#bib.bib1" target="_blank" title="">
+          1
+         </a>
+         ]
+        </cite>
+        , the VGG network and GoogLeNet in 2014 had 19 and 22 layers respectively
+        <cite>
+         [
+         <a href="#bib.bib5" target="_blank" title="">
+          5
+         </a>
+         ,
+         <a href="#bib.bib7" target="_blank" title="">
+          7
+         </a>
+         ]
+        </cite>
+        , and most recently the ResNet architecture featured 152 layers
+        <cite>
+         [
+         <a href="#bib.bib8" target="_blank" title="">
+          8
+         </a>
+         ]
+        </cite>
+        .
+       </p>
+      </div>
+      <div>
+       <p>
+        Network depth is a major determinant of model expressiveness, both in theory
+        <cite>
+         [
+         <a href="#bib.bib9" target="_blank" title="">
+          9
+         </a>
+         ,
+         <a href="#bib.bib10" target="_blank" title="">
+          10
+         </a>
+         ]
+        </cite>
+        and in practice
+        <cite>
+         [
+         <a href="#bib.bib8" target="_blank" title="">
+          8
+         </a>
+         ,
+         <a href="#bib.bib5" target="_blank" title="">
+          5
+         </a>
+         ,
+         <a href="#bib.bib7" target="_blank" title="">
+          7
+         </a>
+         ]
+        </cite>
+        . However, very deep models also introduce new challenges: vanishing gradients in backward propagation, diminishing feature reuse in forward propagation, and long training time.
+       </p>
+      </div>
+      <div>
+       <p>
+        <em>
+         Vanishing Gradients
+        </em>
+        is a well known nuisance in neural networks with many layers
+        <cite>
+         [
+         <a href="#bib.bib11" target="_blank" title="">
+          11
+         </a>
+         ]
+        </cite>
+        . As the gradient information is back-propagated, repeated multiplication or convolution with small weights renders the gradient information ineffectively small in earlier layers. Several approaches exist to reduce this effect in practice, for example through careful initialization
+        <cite>
+         [
+         <a href="#bib.bib12" target="_blank" title="">
+          12
+         </a>
+         ]
+        </cite>
+        , hidden layer supervision
+        <cite>
+         [
+         <a href="#bib.bib13" target="_blank" title="">
+          13
+         </a>
+         ]
+        </cite>
+        , or, recently, Batch Normalization
+        <cite>
+         [
+         <a href="#bib.bib14" target="_blank" title="">
+          14
+         </a>
+         ]
+        </cite>
+        .
+       </p>
+      </div>
+      <div>
+       <p>
+        <em>
+         Diminishing feature reuse
+        </em>
+        during forward propagation (also known as loss in information flow
+        <cite>
+         [
+         <a href="#bib.bib15" target="_blank" title="">
+          15
+         </a>
+         ]
+        </cite>
+        ) refers to the analogous problem to vanishing gradients in the forward direction. The features of the input instance, or those computed by earlier layers, are “washed out” through repeated multiplication or convolution with (randomly initialized) weight matrices, making it hard for later layers to identify and learn “meaningful” gradient directions. Recently, several new architectures attempt to circumvent this problem through direct identity mappings between layers, which allow the network to pass on features unimpededly from earlier layers to later layers
+        <cite>
+         [
+         <a href="#bib.bib8" target="_blank" title="">
+          8
+         </a>
+         ,
+         <a href="#bib.bib15" target="_blank" title="">
+          15
+         </a>
+         ]
+        </cite>
+        .
+       </p>
+      </div>
+      <div>
+       <p>
+        <em>
+         Long training time
+        </em>
+        is a serious concern as networks become very deep. The forward and backward passes scale linearly with the depth of the network. Even on modern computers with multiple state-of-the-art GPUs, architectures like the 152-layer ResNet require several weeks to converge on the ImageNet dataset
+        <cite>
+         [
+         <a href="#bib.bib8" target="_blank" title="">
+          8
+         </a>
+         ]
+        </cite>
+        .
+       </p>
+      </div>
+      <div>
+       <p>
+        The researcher is faced with an inherent dilemma:
+shorter networks have the advantage that information flows efficiently forward and backward, and can therefore be trained effectively and within a reasonable amount of time. However, they are not expressive enough to represent the complex concepts that are commonplace in computer vision applications. Very deep networks have much greather model complexity, but are very difficult to train in practice and require a lot of time and patience.
+       </p>
+      </div>
+      <div>
+       <p>
+        In this paper, we propose
+        <em>
+         deep networks with stochastic depth
+        </em>
+        , a novel training algorithm that is based on the seemingly contradictory insight that ideally we would like to have a
+        <em>
+         deep
+        </em>
+        network during
+        <em>
+         testing
+        </em>
+        but a
+        <em>
+         short
+        </em>
+        network during
+        <em>
+         training
+        </em>
+        . We resolve this conflict by creating deep Residual Network
+        <cite>
+         [
+         <a href="#bib.bib8" target="_blank" title="">
+          8
+         </a>
+         ]
+        </cite>
+        architectures (with hundreds or even thousands of layers) with sufficient modeling capacity; however, during training we shorten the network significantly by randomly removing a substantial fraction of layers independently for each sample or mini-batch.
+The effect is a network with a small
+        <em>
+         expected
+        </em>
+        depth during training, but a large depth during testing. Although seemingly simple, this approach is surprisingly effective in practice.
+       </p>
+      </div>
+      <div>
+       <p>
+        In extensive experiments we observe that training with stochastic depth substantially reduces training time and test error (resulting in multiple new records to the best of our knowledge at the time of initial submission to ECCV).
+The reduction in training time can be attributed to the shorter forward and backward propagation, so the training time no longer scales with the full depth, but the shorter
+        <em>
+         expected depth
+        </em>
+        of the network. We attribute the reduction in test error to two factors: 1) shortening the (expected) depth during training reduces the chain of forward propagation steps and gradient computations, which strengthens the gradients especially in earlier layers during backward propagation; 2) networks trained with stochastic depth can be interpreted as an implicit
+        <em>
+         ensemble
+        </em>
+        of networks of different depths, mimicking the record breaking ensemble of depth varying ResNets trained by He et al.
+        <cite>
+         [
+         <a href="#bib.bib8" target="_blank" title="">
+          8
+         </a>
+         ]
+        </cite>
+        .
+       </p>
+      </div>
+      <div>
+       <p>
+        We also observe that similar to Dropout
+        <cite>
+         [
+         <a href="#bib.bib16" target="_blank" title="">
+          16
+         </a>
+         ]
+        </cite>
+        , training with stochastic depth acts as a regularizer, even in the presence of Batch Normalization
+        <cite>
+         [
+         <a href="#bib.bib14" target="_blank" title="">
+          14
+         </a>
+         ]
+        </cite>
+        . On experiments with CIFAR-10, we increase the depth of a ResNet beyond 1000 layers and still obtain significant improvements in test error.
+       </p>
+      </div>
+     </section>
+     <section>
+      <h2>
+       <span>
+        2
+       </span>
+       Background
+      </h2>
+      <div>
+       <p>
+        Many attempts have been made to improve the training of very deep networks. Earlier works adopted greedy layer-wise training or better initialization schemes
+to alleviate the vanishing gradients and diminishing feature reuse problems
+        <cite>
+         [
+         <a href="#bib.bib17" target="_blank" title="">
+          17
+         </a>
+         ,
+         <a href="#bib.bib18" target="_blank" title="">
+          18
+         </a>
+         ,
+         <a href="#bib.bib12" target="_blank" title="">
+          12
+         </a>
+         ]
+        </cite>
+        .
+A notable recent contribution towards training of very deep networks is Batch Normalization
+        <cite>
+         [
+         <a href="#bib.bib14" target="_blank" title="">
+          14
+         </a>
+         ]
+        </cite>
+        , which standardizes the mean and variance of hidden layers with respect to each mini-batch. This approach reduces the vanishing gradients problem and yields a strong regularizing effect.
+       </p>
+      </div>
+      <div>
+       <p>
+        Recently, several authors introduced extra skip connections to improve the information flow during forward and backward propagation. Highway Networks
+        <cite>
+         [
+         <a href="#bib.bib15" target="_blank" title="">
+          15
+         </a>
+         ]
+        </cite>
+        allow earlier representations to flow unimpededly to later layers through parameterized skip connections known as “information highways”, which can cross several layers at once. The skip connection parameters, learned during training, control the amount of information allowed on these “highways”.
+       </p>
+      </div>
+      <section>
+       <h3>
+        Residual networks (ResNets)
+        <cite>
+         <span>
+          [
+         </span>
+         <a href="#bib.bib8" target="_blank" title="">
+          8
+         </a>
+         <span>
+          ]
+         </span>
+        </cite>
+       </h3>
+       <div>
+        <p>
+         simplify Highway Networks by shortcutting (mostly) with identity functions. This simplification greatly improves training efficiency, and enables more direct feature reuse. ResNets are motivated by the observation that neural networks tend to obtain
+         <em>
+          higher training error
+         </em>
+         as the depth increases to very large values. This is counterintuitive, as the network gains more parameters and therefore better function approximation capabilities. The authors conjecture that the networks become
+         <em>
+          worse
+         </em>
+         at function approximation because the gradients and training signals vanish when they are propagated through many layers. As a fix, they propose to add
+         <em>
+          skip connections
+         </em>
+         to the network. Formally, if
+         <span>
+          <span>
+           <span>
+            <span aria-label="H_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  H
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         denotes the output of the
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell^{th}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  ℓ
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    t
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    h
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         layer (or sequence of layers) and
+         <span>
+          <span>
+           <span>
+            <span aria-label="f_{\ell}(\cdot)">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  f
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                ⋅
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         represents a typical convolutional transformation from layer
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell\!-\!1">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                ℓ
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                −
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         to
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                ℓ
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , we obtain
+        </p>
+        <div>
+         <table>
+          <tbody>
+           <tr>
+            <td>
+            </td>
+            <td>
+             <span>
+              <span>
+               <span>
+                <span aria-label=" H_{\ell}={\tt ReLU}(f_{\ell}(H_{\ell-1})+\text{id}(H_{\ell-1})), ">
+                 <span aria-hidden="true">
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    =
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      R
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      e
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      L
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      U
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    (
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      f
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    (
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                      <span>
+                       <span>
+                        −
+                       </span>
+                      </span>
+                      <span>
+                       <span>
+                        1
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    )
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    +
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     id
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    (
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                      <span>
+                       <span>
+                        −
+                       </span>
+                      </span>
+                      <span>
+                       <span>
+                        1
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    )
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    )
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    ,
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </td>
+            <td>
+            </td>
+            <td rowspan="1">
+             <span>
+              (1)
+             </span>
+            </td>
+           </tr>
+          </tbody>
+         </table>
+        </div>
+        <p>
+         where
+         <span>
+          <span>
+           <span>
+            <span aria-label="\text{id}(\cdot)">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 id
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                ⋅
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         denotes the identity transformation and we assume a
+         <span>
+          <span>
+           <span>
+            <span aria-label="{\tt ReLU}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  R
+                 </span>
+                </span>
+                <span>
+                 <span>
+                  e
+                 </span>
+                </span>
+                <span>
+                 <span>
+                  L
+                 </span>
+                </span>
+                <span>
+                 <span>
+                  U
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         transition function
+         <cite>
+          [
+          <a href="#bib.bib19" target="_blank" title="">
+           19
+          </a>
+          ]
+         </cite>
+         . Fig.
+         <a href="#S3.F1" target="_blank" title="Figure 1 ‣ 3 Deep Networks with Stochastic Depth ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         illustrates an example of a function
+         <span>
+          <span>
+           <span>
+            <span aria-label="f_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  f
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , which consists of multiple convolutional and Batch Normalization layers.
+When the output dimensions of
+         <span>
+          <span>
+           <span>
+            <span aria-label="f_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  f
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         do not match those of
+         <span>
+          <span>
+           <span>
+            <span aria-label="H_{\ell-1}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  H
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    −
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    1
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , the authors redefine
+         <span>
+          <span>
+           <span>
+            <span aria-label="\text{id}(\cdot)">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 id
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                ⋅
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         as a linear projection to reduce the dimensions of
+         <span>
+          <span>
+           <span>
+            <span aria-label="\text{id}(H_{\ell-1})">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 id
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  H
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    −
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    1
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         to match those of
+         <span>
+          <span>
+           <span>
+            <span aria-label="f_{\ell}(H_{\ell-1})">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  f
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  H
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    −
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    1
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         .
+The propagation rule in (
+         <a href="#S2.E1" target="_blank" title="(1) ‣ Residual networks (ResNets)[8] ‣ 2 Background ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         ) allows the network to pass gradients and features (from the input or those learned in earlier layers) back and forth between the layers via the identity transformation
+         <span>
+          <span>
+           <span>
+            <span aria-label="\text{id}(\cdot)">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 id
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                ⋅
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         .
+        </p>
+       </div>
+      </section>
+      <section>
+       <h3>
+        Dropout.
+       </h3>
+       <div>
+        <p>
+         Stochastically dropping hidden nodes or connections has been a popular regularization method for neural networks. The most notable example is Dropout
+         <cite>
+          [
+          <a href="#bib.bib16" target="_blank" title="">
+           16
+          </a>
+          ]
+         </cite>
+         , which multiplies each hidden activation by an independent Bernoulli random variable. Intuitively, Dropout reduces the effect known as “co-adaptation” of hidden nodes collaborating in groups instead of independently producing useful features; it also makes an analogy with training an ensemble of exponentially many small networks. Many follow up works have been empirically successful, such as DropConnect
+         <cite>
+          [
+          <a href="#bib.bib20" target="_blank" title="">
+           20
+          </a>
+          ]
+         </cite>
+         , Maxout
+         <cite>
+          [
+          <a href="#bib.bib21" target="_blank" title="">
+           21
+          </a>
+          ]
+         </cite>
+         and DropIn
+         <cite>
+          [
+          <a href="#bib.bib22" target="_blank" title="">
+           22
+          </a>
+          ]
+         </cite>
+         .
+        </p>
+       </div>
+       <div>
+        <p>
+         Similar to Dropout, stochastic depth can be interpreted as training an ensemble of networks, but with different depths, possibly achieving higher diversity among ensemble members than ensembling those with the same depth. Different from Dropout, we make the network shorter instead of thinner, and are motivated by a different problem. Anecdotally, Dropout loses effectiveness when used in combination with Batch Normalization
+         <cite>
+          [
+          <a href="#bib.bib14" target="_blank" title="">
+           14
+          </a>
+          ,
+          <a href="#bib.bib23" target="_blank" title="">
+           23
+          </a>
+          ]
+         </cite>
+         . Our own experiments with various Dropout rates (on CIFAR-10) show that Dropout gives practically no improvement when used on 110-layer ResNets with Batch Normalization.
+        </p>
+       </div>
+       <div>
+        <p>
+         We view all of these previous approaches to be extremely valuable and consider our proposed training with stochastic depth complimentary to these efforts. In fact, in our experiments we show that training with stochastic depth is indeed very effective on ResNets with Batch Normalization.
+        </p>
+       </div>
+      </section>
+     </section>
+     <section>
+      <h2>
+       <span>
+        3
+       </span>
+       Deep Networks with Stochastic Depth
+      </h2>
+      <figure>
+       <p>
+        <img alt="" height="155" src="https://media.arxiv-vanity.com/render-output/2972749/x1.png" width="675"/>
+       </p>
+       <figcaption>
+        <span>
+         Figure 1:
+        </span>
+        A close look at the
+        <span>
+         <span>
+          <span>
+           <span aria-label="\ell^{\text{th}}">
+            <span aria-hidden="true">
+             <span>
+              <span>
+               <span>
+                <span>
+                 ℓ
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    th
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+        </span>
+        ResBlock in a ResNet.
+       </figcaption>
+      </figure>
+      <div>
+       <p>
+        Learning with stochastic depth is based on a simple intuition. To reduce the
+        <em>
+         effective
+        </em>
+        length of a neural network during training, we randomly skip layers entirely. We achieve this by introducing skip connections in the same fashion as ResNets, however the connection pattern is randomly altered for each mini-batch. For each mini-batch we randomly select sets of layers and remove their corresponding transformation functions, only keeping the identity skip connection.
+Throughout, we use the architecture described by He et al.
+        <cite>
+         [
+         <a href="#bib.bib8" target="_blank" title="">
+          8
+         </a>
+         ]
+        </cite>
+        . Because the architecture already contains skip connections, it is straightforward to modify, and isolates the benefits of stochastic depth from that of the ResNet identity connections. Next we describe this network architecture and then explain the stochastic depth training procedure in detail.
+       </p>
+      </div>
+      <section>
+       <h3>
+        ResNet architecture.
+       </h3>
+       <div>
+        <p>
+         Following He et al.
+         <cite>
+          [
+          <a href="#bib.bib8" target="_blank" title="">
+           8
+          </a>
+          ]
+         </cite>
+         , we construct our network as the functional composition of
+         <span>
+          <span>
+           <span>
+            <span aria-label="L">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                L
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         <em>
+          residual blocks
+         </em>
+         (ResBlocks), each encoding the update rule (
+         <a href="#S2.E1" target="_blank" title="(1) ‣ Residual networks (ResNets)[8] ‣ 2 Background ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         ). Fig.
+         <a href="#S3.F1" target="_blank" title="Figure 1 ‣ 3 Deep Networks with Stochastic Depth ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         shows a schematic illustration of the
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell^{th}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  ℓ
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    t
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    h
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         ResBlock. In this example,
+         <span>
+          <span>
+           <span>
+            <span aria-label="f_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  f
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         consists of a sequence of layers:
+         <span>
+          Conv-BN-ReLU-Conv-BN
+         </span>
+         , where
+         <span>
+          Conv
+         </span>
+         and
+         <span>
+          BN
+         </span>
+         stand for Convolution and Batch Normalization respectively.
+This construction scheme is adopted in all our experiments except ImageNet, for which we use the bottleneck block detailed in He et al.
+         <cite>
+          [
+          <a href="#bib.bib8" target="_blank" title="">
+           8
+          </a>
+          ]
+         </cite>
+         . Typically, there are 64, 32, or 16 filters in the convolutional layers (see Section
+         <a href="#S4" target="_blank" title="4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           4
+          </span>
+         </a>
+         for experimental details).
+        </p>
+       </div>
+       <figure>
+        <p>
+         <img alt="" height="236" src="https://media.arxiv-vanity.com/render-output/2972749/x2.png" width="676"/>
+        </p>
+        <figcaption>
+         <span>
+          Figure 2:
+         </span>
+         The linear decay of
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         illustrated on a ResNet with stochastic depth for
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{0}\!=\!1">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    0
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         and
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}\!=\!0.5">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                0.5
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         . Conceptually, we treat the input to the first ResBlock as
+         <span>
+          <span>
+           <span>
+            <span aria-label="H_{0}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  H
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    0
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , which is always active.
+        </figcaption>
+       </figure>
+      </section>
+      <section>
+       <h3>
+        Stochastic depth
+       </h3>
+       <div>
+        <p>
+         aims to shrink the depth of a network during training, while keeping it unchanged during testing. We can achieve this goal by randomly dropping entire ResBlocks during training and bypassing their transformations through skip connections.
+Let
+         <span>
+          <span>
+           <span>
+            <span aria-label="b_{\ell}\in\{0,1\}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  b
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                ∈
+               </span>
+              </span>
+              <span>
+               <span>
+                {
+               </span>
+              </span>
+              <span>
+               <span>
+                0
+               </span>
+              </span>
+              <span>
+               <span>
+                ,
+               </span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+              <span>
+               <span>
+                }
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         denote a Bernoulli random variable, which indicates whether the
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell^{th}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  ℓ
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    t
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    h
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         ResBlock is active (
+         <span>
+          <span>
+           <span>
+            <span aria-label="b_{\ell}=1">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  b
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         ) or inactive (
+         <span>
+          <span>
+           <span>
+            <span aria-label="b_{\ell}=0">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  b
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                0
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         ). Further, let us denote the “survival” probability of ResBlock
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                ℓ
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         as
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{\ell}=\Pr(b_{\ell}=1)">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                Pr
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  b
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         .
+        </p>
+       </div>
+       <div>
+        <p>
+         With this definition we can bypass the
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell^{th}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  ℓ
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    t
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    h
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         ResBlock by multiplying its function
+         <span>
+          <span>
+           <span>
+            <span aria-label="f_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  f
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         with
+         <span>
+          <span>
+           <span>
+            <span aria-label="b_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  b
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         and we extend the update rule from (
+         <a href="#S2.E1" target="_blank" title="(1) ‣ Residual networks (ResNets)[8] ‣ 2 Background ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         ) to
+        </p>
+        <div>
+         <table>
+          <tbody>
+           <tr>
+            <td>
+            </td>
+            <td>
+             <span>
+              <span>
+               <span>
+                <span aria-label=" H_{\ell}={\tt ReLU}(b_{\ell}f_{\ell}(H_{\ell-1})+\text{id}(H_{\ell-1})). ">
+                 <span aria-hidden="true">
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    =
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      R
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      e
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      L
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      U
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    (
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      b
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      f
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    (
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                      <span>
+                       <span>
+                        −
+                       </span>
+                      </span>
+                      <span>
+                       <span>
+                        1
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    )
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    +
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     id
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    (
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                      <span>
+                       <span>
+                        −
+                       </span>
+                      </span>
+                      <span>
+                       <span>
+                        1
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    )
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    )
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    .
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </td>
+            <td>
+            </td>
+            <td rowspan="1">
+             <span>
+              (2)
+             </span>
+            </td>
+           </tr>
+          </tbody>
+         </table>
+        </div>
+        <p>
+         If
+         <span>
+          <span>
+           <span>
+            <span aria-label="b_{\ell}\!=\!1">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  b
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , eq. (
+         <a href="#S3.E2" target="_blank" title="(2) ‣ Stochastic depth ‣ 3 Deep Networks with Stochastic Depth ‣ Deep Networks with Stochastic Depth">
+          <span>
+           2
+          </span>
+         </a>
+         ) reduces to the original ResNet update (
+         <a href="#S2.E1" target="_blank" title="(1) ‣ Residual networks (ResNets)[8] ‣ 2 Background ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         ) and this ResBlock remains unchanged.
+If
+         <span>
+          <span>
+           <span>
+            <span aria-label="b_{\ell}\!=\!0">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  b
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                0
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , the ResBlock reduces to the identity function,
+        </p>
+        <div>
+         <table>
+          <tbody>
+           <tr>
+            <td>
+            </td>
+            <td>
+             <span>
+              <span>
+               <span>
+                <span aria-label=" H_{\ell}=\text{id}(H_{\ell-1}). ">
+                 <span aria-hidden="true">
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    =
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     id
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    (
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                      <span>
+                       <span>
+                        −
+                       </span>
+                      </span>
+                      <span>
+                       <span>
+                        1
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    )
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    .
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </td>
+            <td>
+            </td>
+            <td rowspan="1">
+             <span>
+              (3)
+             </span>
+            </td>
+           </tr>
+          </tbody>
+         </table>
+        </div>
+        <p>
+         This reduction follows from the fact that the input
+         <span>
+          <span>
+           <span>
+            <span aria-label="H_{\ell-1}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  H
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    −
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    1
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         is always non-negative, at least for the architectures we use. For
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell\geq 2">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                ℓ
+               </span>
+              </span>
+              <span>
+               <span>
+                ≥
+               </span>
+              </span>
+              <span>
+               <span>
+                2
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , it is the output of the previous ResBlock, which is non-negative because of the final
+         <span>
+          <span>
+           <span>
+            <span aria-label="{\tt ReLU}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  R
+                 </span>
+                </span>
+                <span>
+                 <span>
+                  e
+                 </span>
+                </span>
+                <span>
+                 <span>
+                  L
+                 </span>
+                </span>
+                <span>
+                 <span>
+                  U
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         transition function (see Fig.
+         <a href="#S3.F1" target="_blank" title="Figure 1 ‣ 3 Deep Networks with Stochastic Depth ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         ). For
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell\!=\!1">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                ℓ
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , its input is the output of a
+         <span>
+          Conv-BN-ReLU
+         </span>
+         sequence that begins the architecture before the first ResBlock. For non-negative inputs the
+         <span>
+          <span>
+           <span>
+            <span aria-label="{\tt ReLU}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  R
+                 </span>
+                </span>
+                <span>
+                 <span>
+                  e
+                 </span>
+                </span>
+                <span>
+                 <span>
+                  L
+                 </span>
+                </span>
+                <span>
+                 <span>
+                  U
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         transition function acts as an identity.
+        </p>
+       </div>
+      </section>
+      <section>
+       <h3>
+        The survival probabilities
+       </h3>
+       <div>
+        <p>
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         are new hyper-parameters of our training procedure. Intuitively, they should take on similar values for neighboring ResBlocks. One option is to set
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{\ell}=p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         uniformly for all
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                ℓ
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         to obtain a single hyper-parameter
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         . Another possibility is to set them according to a smooth function of
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                ℓ
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         . We propose a simple linear decay rule from
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{0}=1">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    0
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         for the input, to
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         for the last ResBlock:
+        </p>
+        <div>
+         <table>
+          <tbody>
+           <tr>
+            <td>
+            </td>
+            <td>
+             <span>
+              <span>
+               <span>
+                <span aria-label=" p_{\ell}=1-\frac{\ell}{L}(1-p_{L}). ">
+                 <span aria-hidden="true">
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      p
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    =
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    1
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    −
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       ℓ
+                      </span>
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      <span>
+                       L
+                      </span>
+                     </span>
+                    </span>
+                    <span>
+                    </span>
+                   </span>
+                   <span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    (
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    1
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    −
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      p
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        L
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    )
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    .
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </td>
+            <td>
+            </td>
+            <td rowspan="1">
+             <span>
+              (4)
+             </span>
+            </td>
+           </tr>
+          </tbody>
+         </table>
+        </div>
+        <p>
+         See Fig.
+         <a href="#S3.F2" target="_blank" title="Figure 2 ‣ ResNet architecture. ‣ 3 Deep Networks with Stochastic Depth ‣ Deep Networks with Stochastic Depth">
+          <span>
+           2
+          </span>
+         </a>
+         for a schematic illustration.
+The linearly decaying survival probability originates from our intuition that the earlier layers extract low-level features that will be used by later layers and should therefore be more reliably present.
+In Section
+         <a href="#S4" target="_blank" title="4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           4
+          </span>
+         </a>
+         we perform a more detailed empirical comparison between the uniform and decaying assignments for
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         . We conclude that the linear decay rule (
+         <a href="#S3.E4" target="_blank" title="(4) ‣ The survival probabilities ‣ 3 Deep Networks with Stochastic Depth ‣ Deep Networks with Stochastic Depth">
+          <span>
+           4
+          </span>
+         </a>
+         ) is preferred and, as training with stochastic depth is surprisingly stable with respect to
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , we set
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}=0.5">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                0.5
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         throughout (see Fig.
+         <a href="#S5.F8" target="_blank" title="Figure 8 ‣ Improved gradient strength. ‣ 5 Analytic Experiments ‣ Deep Networks with Stochastic Depth">
+          <span>
+           8
+          </span>
+         </a>
+         ).
+        </p>
+       </div>
+      </section>
+      <section>
+       <h3>
+        <span>
+         Expected network depth
+        </span>
+        .
+       </h3>
+       <div>
+        <p>
+         During the forward-backward pass the transformation
+         <span>
+          <span>
+           <span>
+            <span aria-label="f_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  f
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         is bypassed with probability
+         <span>
+          <span>
+           <span>
+            <span aria-label="(\!1-p_{\ell}\!)">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+              <span>
+               <span>
+                −
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , leading to a network with reduced depth.
+With stochastic depth, the number of effective ResBlocks during training, denoted as
+         <span>
+          <span>
+           <span>
+            <span aria-label="\tilde{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    <span>
+                     ~
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     L
+                    </span>
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , becomes a random variable. Its expectation is given by:
+         <span>
+          <span>
+           <span>
+            <span aria-label="E(\tilde{L})=\sum\nolimits_{\ell=1}^{L}p_{\ell}.">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                E
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    <span>
+                     ~
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     L
+                    </span>
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  ∑
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    <span>
+                     L
+                    </span>
+                   </span>
+                  </span>
+                 </span>
+                </span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    <span>
+                     ℓ
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     =
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     1
+                    </span>
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                .
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+        </p>
+       </div>
+       <div>
+        <p>
+         Under the linear decay rule with
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}=0.5">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                0.5
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , the expected number of ResBlocks during training reduces to
+         <span>
+          <span>
+           <span>
+            <span aria-label="E(\tilde{L})=(3L-1)/4">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                E
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    <span>
+                     ~
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     L
+                    </span>
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                3
+               </span>
+              </span>
+              <span>
+               <span>
+                L
+               </span>
+              </span>
+              <span>
+               <span>
+                −
+               </span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  /
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                4
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , or
+         <span>
+          <span>
+           <span>
+            <span aria-label="E(\tilde{L})\approx 3L/4">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                E
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    <span>
+                     ~
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     L
+                    </span>
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+              <span>
+               <span>
+                ≈
+               </span>
+              </span>
+              <span>
+               <span>
+                3
+               </span>
+              </span>
+              <span>
+               <span>
+                L
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  /
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                4
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         when
+         <span>
+          <span>
+           <span>
+            <span aria-label="L">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                L
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         is large. For the 110-layer network with
+         <span>
+          <span>
+           <span>
+            <span aria-label="L=54">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                L
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                54
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         commonly used in our experiments, we have
+         <span>
+          <span>
+           <span>
+            <span aria-label="E(\tilde{L})\approx 40">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                E
+               </span>
+              </span>
+              <span>
+               <span>
+                (
+               </span>
+              </span>
+              <span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    <span>
+                     ~
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     L
+                    </span>
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                )
+               </span>
+              </span>
+              <span>
+               <span>
+                ≈
+               </span>
+              </span>
+              <span>
+               <span>
+                40
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         . In other words, with stochastic depth, we train ResNets with an average number of 40 ResBlocks, but recover a ResNet with 54 blocks at test time.
+This reduction in depth significantly alleviates the vanishing gradients and the information loss problem in deep ResNets. Note that because the connectivity is random, there will be updates with significantly shorter networks and more direct paths to individual layers. We provide an empirical demonstration of this effect in Section
+         <a href="#S5" target="_blank" title="5 Analytic Experiments ‣ Deep Networks with Stochastic Depth">
+          <span>
+           5
+          </span>
+         </a>
+         .
+        </p>
+       </div>
+      </section>
+      <section>
+       <h3>
+        <span>
+         Training time savings
+        </span>
+        .
+       </h3>
+       <div>
+        <p>
+         When a ResBlock is bypassed for a specific iteration, there is no need to perform forward-backward computation or gradient updates. As the forward-backward computation dominates the training time, stochastic depth significantly speeds up the training process. Following the calculations above, approximately
+         <span>
+          <span>
+           <span>
+            <span aria-label="25\%">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                25
+               </span>
+              </span>
+              <span>
+               <span>
+                %
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         of training time could be saved under the linear decay rule with
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}=0.5">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                0.5
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         . The timings in practice using our implementation are consistent with this analysis (see the last paragraph of Section
+         <a href="#S4" target="_blank" title="4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           4
+          </span>
+         </a>
+         ). More computational savings can be obtained by switching to a uniform probability for
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         or lowering
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         accordingly. In fact, Fig.
+         <a href="#S5.F8" target="_blank" title="Figure 8 ‣ Improved gradient strength. ‣ 5 Analytic Experiments ‣ Deep Networks with Stochastic Depth">
+          <span>
+           8
+          </span>
+         </a>
+         shows that with
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}=0.2">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                0.2
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , the ResNet with stochastic depth obtains the same test error as its constant depth counterpart on CIFAR-10 but gives a 40% speedup.
+        </p>
+       </div>
+      </section>
+      <section>
+       <h3>
+        <span>
+         Implicit model ensemble
+        </span>
+        .
+       </h3>
+       <div>
+        <p>
+         In addition to the predicted speedups, we also observe significantly lower testing errors in our experiments, in comparison with ResNets of constant depth.
+One explanation for our performance improvements is that training with stochastic depth can be viewed as training an ensemble of ResNets
+         <em>
+          implicitly
+         </em>
+         .
+Each of the
+         <span>
+          <span>
+           <span>
+            <span aria-label="L">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                L
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         layers is either active or inactive, resulting in
+         <span>
+          <span>
+           <span>
+            <span aria-label="2^{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  2
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         possible network combinations. For each training mini-batch one of the
+         <span>
+          <span>
+           <span>
+            <span aria-label="2^{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  2
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         networks (with shared weights) is sampled and updated. During testing all networks are averaged using the approach in the next paragraph.
+        </p>
+       </div>
+      </section>
+      <section>
+       <h3>
+        Stochastic depth during testing
+       </h3>
+       <div>
+        <p>
+         requires small modifications to the network. We keep all functions
+         <span>
+          <span>
+           <span>
+            <span aria-label="f_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  f
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         active throughout testing in order to utilize the full-length network with all its model capacity. However, during training, functions
+         <span>
+          <span>
+           <span>
+            <span aria-label="f_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  f
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         are only active for a fraction
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         of all updates, and the corresponding weights of the next layer are calibrated for this survival probability. We therefore need to re-calibrate the outputs of any given function
+         <span>
+          <span>
+           <span>
+            <span aria-label="f_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  f
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         by the expected number of times it participates in training,
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         . The forward propagation update rule becomes:
+        </p>
+        <div>
+         <table>
+          <tbody>
+           <tr>
+            <td>
+            </td>
+            <td>
+             <span>
+              <span>
+               <span>
+                <span aria-label=" H_{\ell}^{\text{Test}}={\tt ReLU}(p_{\ell}f_{\ell}(H_{\ell-1}^{\text{Test}};W_%
+{\ell})+H_{\ell-1}^{\text{Test}}). ">
+                 <span aria-hidden="true">
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        <span>
+                         <span>
+                          Test
+                         </span>
+                        </span>
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        <span>
+                         ℓ
+                        </span>
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    =
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      R
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      e
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      L
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      U
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    (
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      p
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      f
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    (
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        <span>
+                         <span>
+                          Test
+                         </span>
+                        </span>
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        <span>
+                         ℓ
+                        </span>
+                       </span>
+                       <span>
+                        <span>
+                         −
+                        </span>
+                       </span>
+                       <span>
+                        <span>
+                         1
+                        </span>
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    ;
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      W
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        ℓ
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    )
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    +
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    <span>
+                     <span>
+                      H
+                     </span>
+                    </span>
+                   </span>
+                   <span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        <span>
+                         <span>
+                          Test
+                         </span>
+                        </span>
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                    <span>
+                     <span>
+                      <span>
+                       <span>
+                        <span>
+                         ℓ
+                        </span>
+                       </span>
+                       <span>
+                        <span>
+                         −
+                        </span>
+                       </span>
+                       <span>
+                        <span>
+                         1
+                        </span>
+                       </span>
+                      </span>
+                     </span>
+                    </span>
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    )
+                   </span>
+                  </span>
+                  <span>
+                   <span>
+                    .
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </td>
+            <td>
+            </td>
+            <td rowspan="1">
+             <span>
+              (5)
+             </span>
+            </td>
+           </tr>
+          </tbody>
+         </table>
+        </div>
+        <p>
+         From the model ensemble perspective, the update rule (
+         <a href="#S3.E5" target="_blank" title="(5) ‣ Stochastic depth during testing ‣ 3 Deep Networks with Stochastic Depth ‣ Deep Networks with Stochastic Depth">
+          <span>
+           5
+          </span>
+         </a>
+         ) can be interpreted as combining all possible networks into a single test architecture, in which each layer is weighted by its survival probability.
+        </p>
+       </div>
+      </section>
+     </section>
+     <section>
+      <h2>
+       <span>
+        4
+       </span>
+       Results
+      </h2>
+      <figure>
+       <div>
+        <table>
+         <tbody>
+          <tr>
+           <th>
+            <br/>
+           </th>
+           <td>
+            <span>
+             CIFAR10+
+            </span>
+           </td>
+           <td>
+            <span>
+             CIFAR100+
+            </span>
+           </td>
+           <td>
+            <span>
+             SVHN
+            </span>
+           </td>
+           <td>
+            <span>
+             ImageNet
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             Maxout
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib21" target="_blank" title="">
+              21
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             9.38
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             2.47
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             DropConnect
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib20" target="_blank" title="">
+              20
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             9.32
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             1.94
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             Net in Net
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib24" target="_blank" title="">
+              24
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             8.81
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             2.35
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             Deeply Supervised
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib13" target="_blank" title="">
+              13
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             7.97
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             1.92
+            </span>
+           </td>
+           <td>
+            <span>
+             33.70
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             Frac. Pool
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib25" target="_blank" title="">
+              25
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             27.62
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             All-CNN
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib6" target="_blank" title="">
+              6
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             7.25
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             41.20
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             Learning Activation
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib26" target="_blank" title="">
+              26
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             7.51
+            </span>
+           </td>
+           <td>
+            <span>
+             30.83
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             R-CNN
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib27" target="_blank" title="">
+              27
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             7.09
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             1.77
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             Scalable BO
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib28" target="_blank" title="">
+              28
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             6.37
+            </span>
+           </td>
+           <td>
+            <span>
+             27.40
+            </span>
+           </td>
+           <td>
+            <span>
+             1.77
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             Highway Network
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib29" target="_blank" title="">
+              29
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             7.60
+            </span>
+           </td>
+           <td>
+            <span>
+             32.24
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             Gen. Pool
+            </span>
+            <cite>
+             <span>
+              [
+             </span>
+             <a href="#bib.bib30" target="_blank" title="">
+              30
+             </a>
+             <span>
+              ]
+             </span>
+            </cite>
+           </th>
+           <td>
+            <span>
+             6.05
+            </span>
+           </td>
+           <td>
+            <span>
+             -
+            </span>
+           </td>
+           <td>
+            <span>
+             1.69
+            </span>
+           </td>
+           <td>
+            <span>
+             28.02
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             ResNet with constant depth
+            </span>
+           </th>
+           <td>
+            <span>
+             6.41
+            </span>
+           </td>
+           <td>
+            <span>
+             27.76
+            </span>
+           </td>
+           <td>
+            <span>
+             1.80
+            </span>
+           </td>
+           <td>
+            <span>
+             21.78
+            </span>
+           </td>
+          </tr>
+          <tr>
+           <th>
+            <span>
+             ResNet with stochastic depth
+            </span>
+           </th>
+           <td>
+            <span>
+             5.25
+            </span>
+           </td>
+           <td>
+            <span>
+             24.98
+            </span>
+           </td>
+           <td>
+            <span>
+             1.75
+            </span>
+           </td>
+           <td>
+            <span>
+             21.98
+            </span>
+           </td>
+          </tr>
+         </tbody>
+        </table>
+       </div>
+       <figcaption>
+        <span>
+         Table 1:
+        </span>
+        Test error (%) of ResNets trained with stochastic depth compared to other most competitive methods previously published (whenever available). A ”+” in the name denotes standard data augmentation. ResNet with constant depth refers to our reproduction of the experiments by He et al.
+       </figcaption>
+      </figure>
+      <div>
+       <p>
+        We empirically demonstrate the effectiveness of stochastic depth on a series of benchmark data sets: CIFAR-10, CIFAR-100
+        <cite>
+         [
+         <a href="#bib.bib1" target="_blank" title="">
+          1
+         </a>
+         ]
+        </cite>
+        , SVHN
+        <cite>
+         [
+         <a href="#bib.bib31" target="_blank" title="">
+          31
+         </a>
+         ]
+        </cite>
+        , and ImageNet
+        <cite>
+         [
+         <a href="#bib.bib2" target="_blank" title="">
+          2
+         </a>
+         ]
+        </cite>
+        .
+       </p>
+      </div>
+      <section>
+       <h3>
+        Implementation details.
+       </h3>
+       <div>
+        <p>
+         For all data sets we compare the results of ResNets with our proposed stochastic depth and the original constant depth, and other most competitive benchmarks. We set
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         with the linear decay rule of
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{0}\!=\!1">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    0
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         and
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}\!=\!0.5">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                0.5
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         throughout. In all experiments we report the test error from the epoch with the lowest validation error.
+For best comparisons we use the same construction scheme (for constant and stochastic depth) as described by He et al.
+         <cite>
+          [
+          <a href="#bib.bib8" target="_blank" title="">
+           8
+          </a>
+          ]
+         </cite>
+         . In the case of CIFAR-100 we use the same 110-layer ResNet used by He et al.
+         <cite>
+          [
+          <a href="#bib.bib8" target="_blank" title="">
+           8
+          </a>
+          ]
+         </cite>
+         for CIFAR-10, except that the network has a 100-way softmax output. Each model contains three groups of residual blocks that differ in number of filters and feature map size, and each group is a stack of 18 residual blocks. The numbers of filters in the three groups are 16, 32 and 64, respectively. For the transitional residual blocks, i.e. the first residual block in the second and third group, the output dimension is larger than the input dimension. Following He et al.
+         <cite>
+          [
+          <a href="#bib.bib8" target="_blank" title="">
+           8
+          </a>
+          ]
+         </cite>
+         , we replace the identity connections in these blocks by an average pooling layer followed by zero paddings to match the dimensions.
+Our implementations are in Torch 7
+         <cite>
+          [
+          <a href="#bib.bib32" target="_blank" title="">
+           32
+          </a>
+          ]
+         </cite>
+         . The code to reproduce the results is publicly available on GitHub at
+         <span>
+          <span>
+           <a href="https://github.com/yueatsprograms/Stochastic_Depth" target="_blank">
+            https://github.com/yueatsprograms/Stochastic_Depth
+           </a>
+          </span>
+         </span>
+         .
+        </p>
+       </div>
+       <figure>
+        <p>
+         <img alt="" height="253" src="https://media.arxiv-vanity.com/render-output/2972749/x3.png" width="338"/>
+         <img alt="" height="255" src="https://media.arxiv-vanity.com/render-output/2972749/x4.png" width="338"/>
+        </p>
+        <figcaption>
+         <span>
+          Figure 3:
+         </span>
+         Test error on CIFAR-10 (
+         <span>
+          left
+         </span>
+         ) and CIFAR-100 (
+         <span>
+          right
+         </span>
+         ) during training, with data augmentation, corresponding to results in the first two columns of Table
+         <a href="#S4.T1" target="_blank" title="Table 1 ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         .
+        </figcaption>
+       </figure>
+      </section>
+      <section>
+       <h3>
+        Cifar-10.
+       </h3>
+       <div>
+        <p>
+         CIFAR-10
+         <cite>
+          [
+          <a href="#bib.bib1" target="_blank" title="">
+           1
+          </a>
+          ]
+         </cite>
+         is a dataset of 32-by-32 color images, representing 10 classes of natural scene objects. The training set and test set contain 50,000 and 10,000 images, respectively. We hold out 5,000 images as validation set, and use the remaining 45,000 as training samples. Horizontal flipping and translation by 4 pixels are the two standard data augmentation techniques adopted in our experiments, following the common practice
+         <cite>
+          [
+          <a href="#bib.bib21" target="_blank" title="">
+           21
+          </a>
+          ,
+          <a href="#bib.bib20" target="_blank" title="">
+           20
+          </a>
+          ,
+          <a href="#bib.bib24" target="_blank" title="">
+           24
+          </a>
+          ,
+          <a href="#bib.bib13" target="_blank" title="">
+           13
+          </a>
+          ,
+          <a href="#bib.bib6" target="_blank" title="">
+           6
+          </a>
+          ,
+          <a href="#bib.bib26" target="_blank" title="">
+           26
+          </a>
+          ,
+          <a href="#bib.bib30" target="_blank" title="">
+           30
+          </a>
+          ]
+         </cite>
+         .
+        </p>
+       </div>
+       <div>
+        <p>
+         The baseline ResNet is trained with SGD for 500 epochs, with a mini-batch size 128. The initial learning rate is 0.1, and is divided by a factor of 10 after epochs 250 and 375. We use a weight decay of 1e-4, momentum of 0.9, and Nesterov momentum
+         <cite>
+          [
+          <a href="#bib.bib33" target="_blank" title="">
+           33
+          </a>
+          ]
+         </cite>
+         with 0 dampening, as suggested by
+         <cite>
+          [
+          <a href="#bib.bib34" target="_blank" title="">
+           34
+          </a>
+          ]
+         </cite>
+         . For stochastic depth, the network structure and all optimization settings are exactly the same as the baseline. All settings were chosen to match the setup of He et al.
+         <cite>
+          [
+          <a href="#bib.bib8" target="_blank" title="">
+           8
+          </a>
+          ]
+         </cite>
+         .
+        </p>
+       </div>
+       <div>
+        <p>
+         The results are shown in Table
+         <a href="#S4.T1" target="_blank" title="Table 1 ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         . ResNets with constant depth result in a competitive 6.41% error on the test set. ResNets trained with stochastic depth yield a further relative improvement of
+         <span>
+          <span>
+           <span>
+            <span aria-label="18\%">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                18
+               </span>
+              </span>
+              <span>
+               <span>
+                %
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         and result in 5.25% test error.
+To our knowledge this is significantly lower than the best existing single model performance (
+         <span>
+          <span>
+           <span>
+            <span aria-label="6.05\%">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                6.05
+               </span>
+              </span>
+              <span>
+               <span>
+                %
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         )
+         <cite>
+          [
+          <a href="#bib.bib30" target="_blank" title="">
+           30
+          </a>
+          ]
+         </cite>
+         on CIFAR-10 prior to our submission, without resorting to massive data augmentation
+         <cite>
+          [
+          <a href="#bib.bib25" target="_blank" title="">
+           25
+          </a>
+          ,
+          <a href="#bib.bib6" target="_blank" title="">
+           6
+          </a>
+          ]
+         </cite>
+         .
+         <span>
+          <sup>
+           1
+          </sup>
+          <span>
+           <span>
+            <sup>
+             1
+            </sup>
+            <span>
+             1
+            </span>
+            The only model that performs even better is the 1202-layer ResNet with stochastic depth, discussed later in this section.
+           </span>
+          </span>
+         </span>
+         Fig.
+         <a href="#S4.F3" target="_blank" title="Figure 3 ‣ Implementation details. ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           3
+          </span>
+         </a>
+         (
+         <span>
+          left
+         </span>
+         ) shows the test error as a function of epochs. The point selected by the lowest validation error is circled for both approaches. We observe that ResNets with stochastic depth yield lower test error but also slightly higher fluctuations (presumably due to the random depth during training).
+        </p>
+       </div>
+      </section>
+      <section>
+       <h3>
+        Cifar-100.
+       </h3>
+       <div>
+        <p>
+         Similar to CIFAR-10, CIFAR-100
+         <cite>
+          [
+          <a href="#bib.bib1" target="_blank" title="">
+           1
+          </a>
+          ]
+         </cite>
+         contains 32-by-32 color images with the same train-test split, but from 100 classes. For both the baseline and our method, the experimental settings are exactly the same as those of CIFAR-10. The constant depth ResNet yields a test error of 27.22%, which is already the state-of-the-art in CIFAR-100 with standard data augmentation. Adding stochastic depth drastically reduces the error to 24.98%, and is again the best published single model performance to our knowledge (see Table
+         <a href="#S4.T1" target="_blank" title="Table 1 ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         and Fig.
+         <a href="#S4.F3" target="_blank" title="Figure 3 ‣ Implementation details. ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           3
+          </span>
+         </a>
+         <span>
+          right
+         </span>
+         ).
+        </p>
+       </div>
+       <div>
+        <p>
+         We also experiment with CIFAR-10 and CIFAR-100 without data augmentation. ResNets with constant depth obtain 13.63% and 44.74% on CIFAR-10 and CIFAR-100 respectively. Adding stochastic depth yields consistent improvements of about 15% on both datasets, resulting in test errors of 11.66% and 37.8% respectively.
+        </p>
+       </div>
+       <figure>
+        <p>
+         <img alt="" height="255" src="https://media.arxiv-vanity.com/render-output/2972749/x5.png" width="338"/>
+         <img alt="" height="255" src="https://media.arxiv-vanity.com/render-output/2972749/x6.png" width="338"/>
+        </p>
+        <figcaption>
+         <span>
+          Figure 4:
+         </span>
+         Left: Test error on SVHN, corresponding to results on column three in Table
+         <a href="#S4.T1" target="_blank" title="Table 1 ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           1
+          </span>
+         </a>
+         .
+         <span>
+          right
+         </span>
+         : Test error on CIFAR-10 using 1202-layer ResNets. The points of lowest validation errors are highlighted in each case.
+        </figcaption>
+       </figure>
+      </section>
+      <section>
+       <h3>
+        Svhn.
+       </h3>
+       <div>
+        <p>
+         The format of the Street View House Number (SVHN)
+         <cite>
+          [
+          <a href="#bib.bib31" target="_blank" title="">
+           31
+          </a>
+          ]
+         </cite>
+         dataset that we use contains 32-by-32 colored images of cropped out house numbers from Google Street View. The task is to classify the digit at the center. There are 73,257 digits in the training set, 26,032 in the test set and 531,131 easier samples for additional training. Following the common practice, we use all the training samples but do not perform data augmentation. For each of the ten classes, we randomly select 400 samples from the training set and 200 from the additional set, forming a validation set with 6,000 samples in total. We preprocess the data by subtracting the mean and dividing the standard deviation. Batch size is set to 128, and validation error is calculated every 200 iterations.
+        </p>
+       </div>
+       <div>
+        <p>
+         Our baseline network has 152 layers. It is trained for 50 epochs with a beginning learning rate of 0.1, divided by 10 after epochs 30 and 35. The depth and learning rate schedule are selected by optimizing for the validation error of the baseline through many trials. This baseline obtains a competitive result of 1.80%. However, as seen in Fig.
+         <a href="#S4.F4" target="_blank" title="Figure 4 ‣ CIFAR-100. ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           4
+          </span>
+         </a>
+         , it starts to overfit at the beginning of the second phase with learning rate 0.01, and continues to overfit until the end of training. With stochastic depth, the error improves to 1.75%, the second-best published result on SVHN to our knowledge after
+         <cite>
+          [
+          <a href="#bib.bib30" target="_blank" title="">
+           30
+          </a>
+          ]
+         </cite>
+         .
+        </p>
+       </div>
+      </section>
+      <section>
+       <h3>
+        Training time comparison.
+       </h3>
+       <figure>
+        <div>
+         <table>
+          <thead>
+           <tr>
+            <th>
+            </th>
+            <th>
+             <span>
+              CIFAR10+
+             </span>
+            </th>
+            <th>
+             <span>
+              CIFAR100+
+             </span>
+            </th>
+            <th>
+             <span>
+              SVHN
+             </span>
+            </th>
+           </tr>
+          </thead>
+          <tbody>
+           <tr>
+            <th>
+             <span>
+              Constant Depth
+             </span>
+            </th>
+            <td>
+             <span>
+              20h 42m
+             </span>
+            </td>
+            <td>
+             <span>
+              20h 51m
+             </span>
+            </td>
+            <td>
+             <span>
+              33h 43m
+             </span>
+            </td>
+           </tr>
+           <tr>
+            <th>
+             <span>
+              Stochastic Depth
+             </span>
+            </th>
+            <td>
+             <span>
+              15h 7m
+             </span>
+            </td>
+            <td>
+             <span>
+              15h 20m
+             </span>
+            </td>
+            <td>
+             <span>
+              25h 33m
+             </span>
+            </td>
+           </tr>
+          </tbody>
+         </table>
+        </div>
+        <figcaption>
+         <span>
+          Table 2:
+         </span>
+         Training time comparison on benchmark datasets.
+        </figcaption>
+       </figure>
+       <div>
+        <p>
+         We compare the training efficiency of the constant depth and stochastic depth ResNets used to produce the previous results. Table 2 shows the training (clock) time under both settings with the linear decay rule
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}=0.5">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                0.5
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         . Stochastic depth consistently gives a 25% speedup, which confirms our analysis in Section
+         <a href="#S3" target="_blank" title="3 Deep Networks with Stochastic Depth ‣ Deep Networks with Stochastic Depth">
+          <span>
+           3
+          </span>
+         </a>
+         . See Fig.
+         <a href="#S5.F8" target="_blank" title="Figure 8 ‣ Improved gradient strength. ‣ 5 Analytic Experiments ‣ Deep Networks with Stochastic Depth">
+          <span>
+           8
+          </span>
+         </a>
+         and the corresponding section on hyper-parameter sensitivity for more empirical analysis.
+        </p>
+       </div>
+       <figure>
+        <img alt="" height="393" src="https://media.arxiv-vanity.com/render-output/2972749/x7.png" width="304"/>
+        <figcaption>
+         <span>
+          Figure 5:
+         </span>
+         With stochastic depth, the 1202-layer ResNet still significantly improves over the 110-layer one.
+        </figcaption>
+       </figure>
+      </section>
+      <section>
+       <h3>
+        Training with a 1202-layer ResNet.
+       </h3>
+       <div>
+        <p>
+         He et al.
+         <cite>
+          [
+          <a href="#bib.bib8" target="_blank" title="">
+           8
+          </a>
+          ]
+         </cite>
+         tried to learn CIFAR-10 using an aggressively deep ResNet with 1202 layers. As expected, this extremely deep network overfitted to the training set: it ended up with a test error of 7.93%, worse than their 110-layer network. We repeat their experiment on the same 1202-layer network, with constant and stochastic depth. We train for 300 epochs, and set the learning rate to 0.01 for the first 10 epochs to “warm-up” the network and facilitate initial convergence, then restore it to 0.1, and divide it by 10 at epochs 150 and 225.
+        </p>
+       </div>
+       <div>
+        <p>
+         The results are summarized in Fig.
+         <a href="#S4.F4" target="_blank" title="Figure 4 ‣ CIFAR-100. ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           4
+          </span>
+         </a>
+         (
+         <span>
+          right
+         </span>
+         ) and Fig.
+         <a href="#S4.F5" target="_blank" title="Figure 5 ‣ Training time comparison. ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           5
+          </span>
+         </a>
+         . Similar to He et al.
+         <cite>
+          [
+          <a href="#bib.bib8" target="_blank" title="">
+           8
+          </a>
+          ]
+         </cite>
+         , the ResNets with constant depth of 1202 layers yields a test error of 6.67%, which is worse than the 110-layer constant depth ResNet. In contrast, if trained with stochastic depth, this extremely deep ResNet performs remarkably well. We want to highlight two trends: 1) Comparing the two 1202-layer nets shows that training with stochastic depth leads to a 27% relative improvement; 2) Comparing the two networks trained with stochastic depth shows that increasing the architecture from 110 layers to 1202 yields a further improvement on the previous record-low 5.25%, to a 4.91% test error without sign of overfitting, as shown in Fig.
+         <a href="#S4.F4" target="_blank" title="Figure 4 ‣ CIFAR-100. ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           4
+          </span>
+         </a>
+         (
+         <span>
+          right
+         </span>
+         )
+         <span>
+          <sup>
+           2
+          </sup>
+          <span>
+           <span>
+            <sup>
+             2
+            </sup>
+            <span>
+             2
+            </span>
+            We do not include this result in Table
+            <a href="#S4.T1" target="_blank" title="Table 1 ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+             <span>
+              1
+             </span>
+            </a>
+            since this architecture was only trained on one of the datasets.
+           </span>
+          </span>
+         </span>
+         .
+        </p>
+       </div>
+       <div>
+        <p>
+         To the best of our knowledge, this is the lowest known test error on CIFAR-10 with moderate image augmentation and the first time that a network with more than 1000 layers has been shown to
+         <em>
+          further reduce
+         </em>
+         the test error
+         <span>
+          <sup>
+           3
+          </sup>
+          <span>
+           <span>
+            <sup>
+             3
+            </sup>
+            <span>
+             3
+            </span>
+            This is, until early March, 2016, when this paper was submitted to ECCV. Many new developments have further decreased the error on CIFAR-10 since then (and some are based on this work).
+           </span>
+          </span>
+         </span>
+         . We consider these findings highly encouraging and hope that training with stochastic depth will enable researchers to leverage extremely deep architectures in the future.
+        </p>
+       </div>
+       <figure>
+        <p>
+         <img alt="" height="255" src="https://media.arxiv-vanity.com/render-output/2972749/x8.png" width="338"/>
+        </p>
+        <figcaption>
+         <span>
+          Figure 6:
+         </span>
+         Validation error on ILSVRC 2012 classification.
+        </figcaption>
+       </figure>
+      </section>
+      <section>
+       <h3>
+        ImageNet.
+       </h3>
+       <div>
+        <p>
+         The ILSVRC 2012 classification dataset consists of 1000 classes of images, in total 1.2 million for training, 50,000 for validation, and 100,000 for testing. Following the common practice, we only report the validation errors. We follow He et al.
+         <cite>
+          [
+          <a href="#bib.bib8" target="_blank" title="">
+           8
+          </a>
+          ]
+         </cite>
+         to build a 152-layer ResNet with 50 bottleneck residual blocks. When input and output dimensions do not match, the skip connection uses a learned linear projection for the mismatching dimensions, and an identity transformation for the other dimensions. Our implementation is based on the github repository
+         <span>
+          fb.resnet.torch
+          <span>
+           <sup>
+            4
+           </sup>
+           <span>
+            <span>
+             <sup>
+              4
+             </sup>
+             <span>
+              <span>
+               4
+              </span>
+             </span>
+             <span>
+              <a href="https://github.com/facebook/fb.resnet.torch" target="_blank">
+               https://github.com/facebook/fb.resnet.torch
+              </a>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         <cite>
+          [
+          <a href="#bib.bib34" target="_blank" title="">
+           34
+          </a>
+          ]
+         </cite>
+         , and the optimization settings are the same as theirs, except that we use a batch size of 128 instead of 256 because we can only spread a batch among 4 GPUs (instead of 8 as they did).
+        </p>
+       </div>
+       <div>
+        <p>
+         We train the constant depth baseline for 90 epochs (following He et al. and the default setting in the repository) and obtain a final error of 23.06%. With stochastic depth, we obtain an error of 23.38% at epoch 90, which is slightly higher. We observe from Fig.
+         <a href="#S4.F6" target="_blank" title="Figure 6 ‣ Training with a 1202-layer ResNet. ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           6
+          </span>
+         </a>
+         that the downward trend of the validation error with stochastic depth is still strong, and from our previous experience, could benefit from further training. Due to the 25% computational saving, we can add 30 epochs (giving 120 in total, after decreasing the learning rate to 1e-4 at epoch 90), and still finish in almost the same total time as 90 epochs of the baseline. This reaches a final error of 21.98%. We have also kept the baseline running for 30 more epochs. This reaches a final error of 21.78%.
+        </p>
+       </div>
+       <div>
+        <p>
+         Because ImageNet is a very complicated and large dataset, the model complexity required could potentially be much more than that of the 152-layer ResNet
+         <cite>
+          [
+          <a href="#bib.bib35" target="_blank" title="">
+           35
+          </a>
+          ]
+         </cite>
+         . In the words of an anonymous reviewer, the current generation of models for ImageNet are still in a different regime from those of CIFAR. Although there seems to be no immediate benefit from applying stochastic depth on this particular architecture, it is possible that stochastic depth will lead to improvements on ImageNet with larger models, which the community might soon be able to train as GPU capacities increase.
+        </p>
+       </div>
+      </section>
+     </section>
+     <section>
+      <h2>
+       <span>
+        5
+       </span>
+       Analytic Experiments
+      </h2>
+      <div>
+       <p>
+        In this section, we provide more insights into stochastic depth by presenting a series of analytical results. We perform experiments to support the hypothesis that stochastic depth effectively addresses the problem of vanishing gradients in backward propagation. Moreover, we demonstrate the robustness of stochastic depth with respect to its hyper-parameter.
+       </p>
+      </div>
+      <figure>
+       <p>
+        <img alt="" height="244" src="https://media.arxiv-vanity.com/render-output/2972749/x9.png" width="608"/>
+       </p>
+       <figcaption>
+        <span>
+         Figure 7:
+        </span>
+        The first convolutional layer’s mean gradient magnitude for each epoch during training. The vertical dotted lines indicate scheduled reductions in learning rate by a factor of 10, which cause gradients to shrink.
+       </figcaption>
+      </figure>
+      <section>
+       <h3>
+        Improved gradient strength.
+       </h3>
+       <div>
+        <p>
+         Stochastically dropping layers during training reduces the effective depth on which gradient back-propagation is performed, while keeping the test-time model depth unmodified. As a result we expect training with stochastic depth to reduce the vanishing gradient problem in the backward step.
+To empirically support this, we compare the magnitude of gradients to the first convolutional layer of the first ResBlock (
+         <span>
+          <span>
+           <span>
+            <span aria-label="\ell\!=\!1">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                ℓ
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                1
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         ) with and without stochastic depth on the CIFAR-10 data set.
+        </p>
+       </div>
+       <div>
+        <p>
+         Fig.
+         <a href="#S5.F7" target="_blank" title="Figure 7 ‣ 5 Analytic Experiments ‣ Deep Networks with Stochastic Depth">
+          <span>
+           7
+          </span>
+         </a>
+         shows the mean absolute values of the gradients. The two large drops indicated by vertical dotted lines are due to scheduled learning rate division. It can be observed that the magnitude of gradients in the network trained with stochastic depth is always larger, especially after the learning rate drops. This seems to support out claim that stochastic depth indeed significantly reduces the vanishing gradient problem, and enables the network to be trained more effectively. Another indication of the effect is in the left panel of Fig.
+         <a href="#S4.F3" target="_blank" title="Figure 3 ‣ Implementation details. ‣ 4 Results ‣ Deep Networks with Stochastic Depth">
+          <span>
+           3
+          </span>
+         </a>
+         , where one can observe that the test error of the ResNets with constant depth approximately plateaus after the first drop of learning rate, while stochastic depth still improves the performance even after the learning rate drops for the second time. This further supports that stochastic depth combines the benefits of shortened network during training with those of deep models at test time.
+        </p>
+       </div>
+       <figure>
+        <p>
+         <img alt="" height="290" src="https://media.arxiv-vanity.com/render-output/2972749/x10.png" width="338"/>
+         <img alt="" height="294" src="https://media.arxiv-vanity.com/render-output/2972749/x11.png" width="392"/>
+        </p>
+        <figcaption>
+         <span>
+          Figure 8:
+         </span>
+         Left: Test error (%) on CIFAR-10 with respect to the
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         with uniform and decaying assignments of
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{\ell}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    ℓ
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         . Right: Test error (%) heatmap on CIFAR-10 varyied over
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         and network depth.
+        </figcaption>
+       </figure>
+      </section>
+      <section>
+       <h3>
+        Hyper-parameter sensitivity.
+       </h3>
+       <div>
+        <p>
+         The survival probability
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         is the only hyper-parameter of our method. Although we used
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}\!=\!0.5">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+              </span>
+              <span>
+               <span>
+                0.5
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         throughout all our experiments, it is still worth investigating the sensitivity of stochastic depth with respect to its hyper-parameter. To this end, we compare the test error of the 110-layer ResNet under varying values of
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         (
+         <span>
+          <span>
+           <span>
+            <span aria-label="L=54">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                L
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                54
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         ) for both linear decay and uniform assignment rules on the CIFAR-10 data set in Fig.
+         <a href="#S5.F8" target="_blank" title="Figure 8 ‣ Improved gradient strength. ‣ 5 Analytic Experiments ‣ Deep Networks with Stochastic Depth">
+          <span>
+           8
+          </span>
+         </a>
+         (
+         <span>
+          left
+         </span>
+         ). We make the following observations: 1) both assignment rules yield better results than the baseline when
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         is set properly; 2) the linear decay rule outperforms the uniform rule consistently; 3) the linear decay rule is relatively robust to fluctuations in
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         and obtains competitive results when
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         ranges from 0.4 to 0.8; 4) even with a rather small survival probability e.g.
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}=0.2">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                0.2
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         , stochastic depth with linear decay still performs well, while giving a 40% reduction in training time. This shows that stochastic depth can save training time substantially without compromising accuracy.
+        </p>
+       </div>
+       <div>
+        <p>
+         The heatmap on the right shows the test error varied over both
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         and network depth. Not surprisingly, deeper networks (at least in the range of our experiments) do better with a
+         <span>
+          <span>
+           <span>
+            <span aria-label="p_{L}=0.5">
+             <span aria-hidden="true">
+              <span>
+               <span>
+                <span>
+                 <span>
+                  p
+                 </span>
+                </span>
+               </span>
+               <span>
+                <span>
+                 <span>
+                  <span>
+                   <span>
+                    L
+                   </span>
+                  </span>
+                 </span>
+                </span>
+               </span>
+              </span>
+              <span>
+               <span>
+                =
+               </span>
+              </span>
+              <span>
+               <span>
+                0.5
+               </span>
+              </span>
+             </span>
+            </span>
+           </span>
+          </span>
+         </span>
+         . The ”valley” of the heatmap is along the diagonal. A deep enough model is necessary for stochastic depth to significantly outperform the baseline (an observation we also make with the ImageNet data set), although shorter networks can still benefit from less aggressive skipping.
+        </p>
+       </div>
+      </section>
+     </section>
+     <section>
+      <h2>
+       <span>
+        6
+       </span>
+       Conclusion
+      </h2>
+      <div>
+       <p>
+        In this paper we introduced deep networks with
+        <em>
+         stochastic depth
+        </em>
+        , a procedure to train very deep neural networks effectively and efficiently. Stochastic depth reduces the network depth during training
+        <em>
+         in expectation
+        </em>
+        while maintaining the full depth at testing time. Training with stochastic depth allows one to increase the depth of a network well beyond 1000 layers, and still obtain a reduction in test error. Because of its simplicity and practicality we hope that training with stochastic depth may become a new tool in the deep learning “toolbox”, and will help researchers scale their models to previously unattainable depths and capabilities.
+       </p>
+      </div>
+      <section>
+       <h3>
+        Acknowledgements.
+       </h3>
+       <div>
+        <p>
+         We thank the anonymous reviewers for their kind suggestions. Kilian Weinberger is supported by NFS grants IIS-1550179, IIS-1525919 and EFRI-1137211. Gao Huang is supported by the International Postdoctoral Exchange Fellowship Program of China Postdoctoral Council (No.20150015). Yu Sun is supported by the Cornell University Office of Undergraduate Research. We also thank our lab mates, Matthew Kusner and Shuang Li for useful and interesting discussions.
+        </p>
+       </div>
+      </section>
+     </section>
+     <section>
+      <h2>
+       References
+      </h2>
+      <ul>
+       <li>
+        <span>
+         [1]
+        </span>
+        <span>
+         Krizhevsky, A., Hinton, G.:
+        </span>
+        <span>
+         Learning multiple layers of features from tiny images (2009)
+        </span>
+       </li>
+       <li>
+        <span>
+         [2]
+        </span>
+        <span>
+         Deng, J., Dong, W., Socher, R., Li, L.J., Li, K., Fei-Fei, L.:
+        </span>
+        <span>
+         Imagenet: A large-scale hierarchical image database.
+        </span>
+        <span>
+         In: Computer Vision and Pattern Recognition, 2009. CVPR 2009. IEEE
+Conference on, IEEE (2009) 248–255
+        </span>
+       </li>
+       <li>
+        <span>
+         [3]
+        </span>
+        <span>
+         Krizhevsky, A., Sutskever, I., Hinton, G.E.:
+        </span>
+        <span>
+         Imagenet classification with deep convolutional neural networks.
+        </span>
+        <span>
+         In: Advances in neural information processing systems. (2012)
+1097–1105
+        </span>
+       </li>
+       <li>
+        <span>
+         [4]
+        </span>
+        <a href="/papers/1312.6229/" target="_blank">
+         <span>
+          Sermanet, P., Eigen, D., Zhang, X., Mathieu, M., Fergus, R., LeCun, Y.:
+         </span>
+         <span>
+          Overfeat: Integrated recognition, localization and detection using
+convolutional networks.
+         </span>
+         <span>
+          arXiv preprint arXiv:1312.6229 (2013)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [5]
+        </span>
+        <a href="/papers/1409.1556/" target="_blank">
+         <span>
+          Simonyan, K., Zisserman, A.:
+         </span>
+         <span>
+          Very deep convolutional networks for large-scale image recognition.
+         </span>
+         <span>
+          arXiv preprint arXiv:1409.1556 (2014)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [6]
+        </span>
+        <a href="/papers/1412.6806/" target="_blank">
+         <span>
+          Springenberg, J.T., Dosovitskiy, A., Brox, T., Riedmiller, M.:
+         </span>
+         <span>
+          Striving for simplicity: The all convolutional net.
+         </span>
+         <span>
+          arXiv preprint arXiv:1412.6806 (2014)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [7]
+        </span>
+        <span>
+         Szegedy, C., Liu, W., Jia, Y., Sermanet, P., Reed, S., Anguelov, D., Erhan, D.,
+Vanhoucke, V., Rabinovich, A.:
+        </span>
+        <span>
+         Going deeper with convolutions.
+        </span>
+        <span>
+         In: Proceedings of the IEEE Conference on Computer Vision and Pattern
+Recognition. (2015) 1–9
+        </span>
+       </li>
+       <li>
+        <span>
+         [8]
+        </span>
+        <a href="/papers/1512.03385/" target="_blank">
+         <span>
+          He, K., Zhang, X., Ren, S., Sun, J.:
+         </span>
+         <span>
+          Deep residual learning for image recognition.
+         </span>
+         <span>
+          arXiv preprint arXiv:1512.03385 (2015)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [9]
+        </span>
+        <span>
+         Håstad, J., Goldmann, M.:
+        </span>
+        <span>
+         On the power of small-depth threshold circuits.
+        </span>
+        <span>
+         Computational Complexity
+         <span>
+          1
+         </span>
+         (2) (1991) 113–129
+        </span>
+       </li>
+       <li>
+        <span>
+         [10]
+        </span>
+        <span>
+         Håstad, J.:
+        </span>
+        <span>
+         Computational limitations of small-depth circuits.
+        </span>
+        <span>
+         (1987)
+        </span>
+       </li>
+       <li>
+        <span>
+         [11]
+        </span>
+        <span>
+         Bengio, Y., Simard, P., Frasconi, P.:
+        </span>
+        <span>
+         Learning long-term dependencies with gradient descent is difficult.
+        </span>
+        <span>
+         Neural Networks, IEEE Transactions on
+         <span>
+          5
+         </span>
+         (2) (1994) 157–166
+        </span>
+       </li>
+       <li>
+        <span>
+         [12]
+        </span>
+        <span>
+         Glorot, X., Bengio, Y.:
+        </span>
+        <span>
+         Understanding the difficulty of training deep feedforward neural
+networks.
+        </span>
+        <span>
+         In: International conference on artificial intelligence and
+statistics. (2010) 249–256
+        </span>
+       </li>
+       <li>
+        <span>
+         [13]
+        </span>
+        <a href="/papers/1409.5185/" target="_blank">
+         <span>
+          Lee, C.Y., Xie, S., Gallagher, P., Zhang, Z., Tu, Z.:
+         </span>
+         <span>
+          Deeply-supervised nets.
+         </span>
+         <span>
+          arXiv preprint arXiv:1409.5185 (2014)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [14]
+        </span>
+        <a href="/papers/1502.03167/" target="_blank">
+         <span>
+          Ioffe, S., Szegedy, C.:
+         </span>
+         <span>
+          Batch normalization: Accelerating deep network training by reducing
+internal covariate shift.
+         </span>
+         <span>
+          arXiv preprint arXiv:1502.03167 (2015)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [15]
+        </span>
+        <a href="/papers/1505.00387/" target="_blank">
+         <span>
+          Srivastava, R.K., Greff, K., Schmidhuber, J.:
+         </span>
+         <span>
+          Highway networks.
+         </span>
+         <span>
+          arXiv preprint arXiv:1505.00387 (2015)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [16]
+        </span>
+        <span>
+         Srivastava, N., Hinton, G., Krizhevsky, A., Sutskever, I., Salakhutdinov, R.:
+        </span>
+        <span>
+         Dropout: A simple way to prevent neural networks from overfitting.
+        </span>
+        <span>
+         The Journal of Machine Learning Research
+         <span>
+          15
+         </span>
+         (1) (2014)
+1929–1958
+        </span>
+       </li>
+       <li>
+        <span>
+         [17]
+        </span>
+        <span>
+         Fahlman, S.E., Lebiere, C.:
+        </span>
+        <span>
+         The cascade-correlation learning architecture.
+        </span>
+        <span>
+         (1989)
+        </span>
+       </li>
+       <li>
+        <span>
+         [18]
+        </span>
+        <span>
+         Erhan, D., Bengio, Y., Courville, A., Manzagol, P.A., Vincent, P., Bengio, S.:
+        </span>
+        <span>
+         Why does unsupervised pre-training help deep learning?
+        </span>
+        <span>
+         The Journal of Machine Learning Research
+         <span>
+          11
+         </span>
+         (2010) 625–660
+        </span>
+       </li>
+       <li>
+        <span>
+         [19]
+        </span>
+        <span>
+         Nair, V., Hinton, G.E.:
+        </span>
+        <span>
+         Rectified linear units improve restricted boltzmann machines.
+        </span>
+        <span>
+         In: Proceedings of the 27th International Conference on Machine
+Learning (ICML-10). (2010) 807–814
+        </span>
+       </li>
+       <li>
+        <span>
+         [20]
+        </span>
+        <span>
+         Wan, L., Zeiler, M., Zhang, S., Cun, Y.L., Fergus, R.:
+        </span>
+        <span>
+         Regularization of neural networks using dropconnect.
+        </span>
+        <span>
+         In Dasgupta, S., Mcallester, D., eds.: Proceedings of the 30th
+International Conference on Machine Learning (ICML-13). Volume 28., JMLR
+Workshop and Conference Proceedings (May 2013) 1058–1066
+        </span>
+       </li>
+       <li>
+        <span>
+         [21]
+        </span>
+        <a href="/papers/1302.4389/" target="_blank">
+         <span>
+          Goodfellow, I.J., Warde-Farley, D., Mirza, M., Courville, A., Bengio, Y.:
+         </span>
+         <span>
+          Maxout networks.
+         </span>
+         <span>
+          arXiv preprint arXiv:1302.4389 (2013)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [22]
+        </span>
+        <span>
+         Smith, L.N., Hand, E.M., Doster, T.:
+        </span>
+        <span>
+         Gradual dropin of layers to train very deep neural networks.
+        </span>
+        <span>
+         CVPR (2016)
+        </span>
+       </li>
+       <li>
+        <span>
+         [23]
+        </span>
+        <span>
+         Zagoruyko, S.:
+        </span>
+        <span>
+         92.45% on cifar-10 in torch (2015)
+        </span>
+       </li>
+       <li>
+        <span>
+         [24]
+        </span>
+        <a href="/papers/1312.4400/" target="_blank">
+         <span>
+          Lin, M., Chen, Q., Yan, S.:
+         </span>
+         <span>
+          Network in network.
+         </span>
+         <span>
+          arXiv preprint arXiv:1312.4400 (2013)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [25]
+        </span>
+        <a href="/papers/1412.6071/" target="_blank">
+         <span>
+          Graham, B.:
+         </span>
+         <span>
+          Fractional max-pooling.
+         </span>
+         <span>
+          arXiv preprint arXiv:1412.6071 (2014)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [26]
+        </span>
+        <a href="/papers/1412.6830/" target="_blank">
+         <span>
+          Agostinelli, F., Hoffman, M., Sadowski, P., Baldi, P.:
+         </span>
+         <span>
+          Learning activation functions to improve deep neural networks.
+         </span>
+         <span>
+          arXiv preprint arXiv:1412.6830 (2014)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [27]
+        </span>
+        <span>
+         Liang, M., Hu, X.:
+        </span>
+        <span>
+         Recurrent convolutional neural network for object recognition.
+        </span>
+        <span>
+         In: Proceedings of the IEEE Conference on Computer Vision and Pattern
+Recognition. (2015) 3367–3375
+        </span>
+       </li>
+       <li>
+        <span>
+         [28]
+        </span>
+        <a href="/papers/1502.05700/" target="_blank">
+         <span>
+          Snoek, J., Rippel, O., Swersky, K., Kiros, R., Satish, N., Sundaram, N.,
+Patwary, M., Ali, M., Adams, R.P., et al.:
+         </span>
+         <span>
+          Scalable bayesian optimization using deep neural networks.
+         </span>
+         <span>
+          arXiv preprint arXiv:1502.05700 (2015)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [29]
+        </span>
+        <span>
+         Srivastava, R.K., Greff, K., Schmidhuber, J.:
+        </span>
+        <span>
+         Training very deep networks.
+        </span>
+        <span>
+         In: Advances in Neural Information Processing Systems. (2015)
+2368–2376
+        </span>
+       </li>
+       <li>
+        <span>
+         [30]
+        </span>
+        <a href="/papers/1509.08985/" target="_blank">
+         <span>
+          Lee, C.Y., Gallagher, P.W., Tu, Z.:
+         </span>
+         <span>
+          Generalizing pooling functions in convolutional neural networks:
+Mixed, gated, and tree.
+         </span>
+         <span>
+          arXiv preprint arXiv:1509.08985 (2015)
+         </span>
+        </a>
+       </li>
+       <li>
+        <span>
+         [31]
+        </span>
+        <span>
+         Netzer, Y., Wang, T., Coates, A., Bissacco, A., Wu, B., Ng, A.Y.:
+        </span>
+        <span>
+         Reading digits in natural images with unsupervised feature learning.
+        </span>
+        <span>
+         In: NIPS workshop on deep learning and unsupervised feature learning.
+Volume 2011., Granada, Spain (2011)  4
+        </span>
+       </li>
+       <li>
+        <span>
+         [32]
+        </span>
+        <span>
+         Collobert, R., Kavukcuoglu, K., Farabet, C.:
+        </span>
+        <span>
+         Torch7: A matlab-like environment for machine learning.
+        </span>
+        <span>
+         In: BigLearn, NIPS Workshop. (2011)
+        </span>
+       </li>
+       <li>
+        <span>
+         [33]
+        </span>
+        <span>
+         Sutskever, I., Martens, J., Dahl, G., Hinton, G.:
+        </span>
+        <span>
+         On the importance of initialization and momentum in deep learning.
+        </span>
+        <span>
+         In: Proceedings of the 30th international conference on machine
+learning (ICML-13). (2013) 1139–1147
+        </span>
+       </li>
+       <li>
+        <span>
+         [34]
+        </span>
+        <span>
+         Gross, S., Wilber, M.:
+        </span>
+        <span>
+         Training and investigating residual nets (2016)
+        </span>
+       </li>
+       <li>
+        <span>
+         [35]
+        </span>
+        <a href="/papers/1603.05027/" target="_blank">
+         <span>
+          He, K., Zhang, X., Ren, S., Sun, J.:
+         </span>
+         <span>
+          Identity mappings in deep residual networks.
+         </span>
+         <span>
+          arXiv preprint arXiv:1603.05027 (2016)
+         </span>
+        </a>
+       </li>
+      </ul>
+     </section>
+    </article>
+   </div>
+  </div>
+  <!-- jQuery first, then Tether, then Bootstrap JS. -->
+ </body>
+</html>
