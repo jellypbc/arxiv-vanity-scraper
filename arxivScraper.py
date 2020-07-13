@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import random
+import json
 
 '''
 	Function that takes post from arxiv vanity and returns cleaned html to be parsed into jelly
@@ -12,9 +13,10 @@ import random
 	Output:
 		Generated HTML file
 '''
+universalObject = {}
 def scrapeVanity(arxivID, fileName):
 
-	#get html and parse into beautiful soup
+	# get html and parse into beautiful soup
 	response = requests.get("https://www.arxiv-vanity.com/papers/" + str(arxivID))
 	soup = BeautifulSoup(response.content, 'html.parser')
 
@@ -48,9 +50,18 @@ def scrapeVanity(arxivID, fileName):
 	IDList = []
 	for tag in soup.find_all():
 		if 'href' in tag.attrs:
-			if '/papers/' in tag.attrs['href'] and 'http' not in tag.attrs['href']:
+			if tag.attrs['href'][:8] == "/papers/":
+				print(tag.attrs['href'])
 				newId = tag.attrs['href'].replace('/papers/','').replace('/','')
 				IDList.append(newId)
+
+	if arxivID not in universalObject:
+		universalObject[arxivID] = IDList
+
+	# Creates a json object with the key being the paper 
+	# and value being an array of papers (that are on arxiv) that the key cites
+	with open("links.json", "w") as outfile:
+		json.dump(universalObject, outfile, indent=2) 
 
 	# BIG if (lets see what happens lol)
 	if len(IDList) > 0:
@@ -62,4 +73,4 @@ def scrapeVanity(arxivID, fileName):
 
 
 # Sample run of function
-scrapeVanity('1603.09382', 'test.html')
+scrapeVanity('1603.09382', '1603.09382.html')
